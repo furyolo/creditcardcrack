@@ -1,0 +1,19 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model creditcards {
+  id             Int       @id @default(autoincrement())
+  card_type      String    @db.VarChar(20)
+  card_number    String    @unique @db.VarChar(16)
+  expire_month   String    @db.VarChar(2)
+  expire_year    String    @db.VarChar(4)
+  cvv            String    @db.VarChar(3)
+  formatted_info String
+  created_at     DateTime? @default(now()) @db.Timestamp(6)
+}

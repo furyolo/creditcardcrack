@@ -1,0 +1,17 @@
+{
+	"name": "creditcardcrack",
+	"version": "1.0.0",
+	"description": "信用卡测试号码生成工具集",
+	"private": true,
+	"scripts": {
+		"start:api": "cd packages/api-server && pnpm start",
+		"dev:api": "cd packages/api-server && pnpm dev",
+		"db:migrate": "cd packages/api-server && pnpm prisma migrate dev",
+		"db:studio": "cd packages/api-server && pnpm prisma studio"
+	},
+	"packageManager": "pnpm@10.6.5",
+	"engines": {
+		"node": ">=18.0.0",
+		"pnpm": ">=10.0.0"
+	}
+}

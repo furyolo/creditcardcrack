@@ -1,0 +1,79 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# IDE
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Build output
+dist/
+build/
+out/
+.next/
+.nuxt/
+.output/
+
+# Cache
+.cache/
+.temp/
+.tmp/
+.eslintcache
+.stylelintcache
+
+# Database
+*.sqlite
+*.sqlite3
+*.db
+*.sql
+*.bak
+
+# Test
+coverage/
+.nyc_output/
+.test/
+jest.config.js
+
+# Temporary files
+*.swp
+*.swo
+*~
+*.tmp
+*.temp
+
+# Archives
+*.zip
+*.tar.gz
+*.rar
+*.7z
+
+# Prisma
+prisma/*.db
+prisma/migrations/
+
+# Misc
+.DS_Store
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
