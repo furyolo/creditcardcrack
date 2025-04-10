@@ -5,6 +5,7 @@
 // @description  在Stripe支付页面添加信用卡和地址信息生成功能
 // @author       Andy
 // @match        https://checkout.stripe.com/c/pay*
+// @match        https://billing.stripe.com/p*
 // @grant        GM_xmlhttpRequest
 // @grant        GM_setClipboard
 // @connect      localhost
@@ -383,8 +384,8 @@
                 let filled = false;
                 const cardFields = {
                     cardNumber: document.querySelector('input[name*="number" i]'),
-                    expiry: document.querySelector('input[name*="expiry" i], input[name*="Expiry" i]'),
-                    cvv: document.querySelector('input[name*="cvc" i], input[name*="Cvc" i]')
+                    expiry: document.querySelector('input[name*="expiry" i]'),
+                    cvv: document.querySelector('input[name*="cvc" i]')
                 };
                 
                 filled = fillCardFields(document, cardFields, cardData);

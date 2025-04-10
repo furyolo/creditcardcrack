@@ -12,6 +12,7 @@ node_modules/
 .vscode/
 *.sublime-project
 *.sublime-workspace
+.cursor/
 
 # OS
 .DS_Store
