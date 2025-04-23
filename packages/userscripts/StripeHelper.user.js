@@ -247,6 +247,82 @@
             });
         }
 
+        // 复制文本到剪贴板功能
+        function copyToClipboard(text) {
+            GM_setClipboard(text);
+            
+            // 创建一个临时元素显示复制成功
+            const notification = document.createElement('div');
+            notification.textContent = '已复制!';
+            notification.style.cssText = `
+                position: fixed;
+                bottom: 20px;
+                left: 50%;
+                transform: translateX(-50%);
+                background-color: rgba(0, 0, 0, 0.7);
+                color: white;
+                padding: 8px 16px;
+                border-radius: 4px;
+                font-size: 14px;
+                z-index: 10000;
+                opacity: 0;
+                transition: opacity 0.3s ease;
+            `;
+            document.body.appendChild(notification);
+            
+            // 显示通知
+            setTimeout(() => {
+                notification.style.opacity = '1';
+                
+                // 设置定时器自动移除通知
+                setTimeout(() => {
+                    notification.style.opacity = '0';
+                    setTimeout(() => {
+                        document.body.removeChild(notification);
+                    }, 300);
+                }, 1500);
+            }, 0);
+        }
+        
+        // 创建复制按钮
+        function createCopyButton(text) {
+            const button = document.createElement('button');
+            button.innerHTML = `
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"></path>
+                </svg>
+            `;
+            button.style.cssText = `
+                background: #f0f0f0;
+                border: none;
+                border-radius: 3px;
+                cursor: pointer;
+                padding: 3px;
+                margin-left: 5px;
+                vertical-align: middle;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                transition: all 0.2s;
+            `;
+            
+            button.addEventListener('mouseover', () => {
+                button.style.background = '#e0e0e0';
+            });
+            
+            button.addEventListener('mouseout', () => {
+                button.style.background = '#f0f0f0';
+            });
+            
+            button.addEventListener('click', (e) => {
+                e.preventDefault();
+                copyToClipboard(text);
+            });
+            
+            return button;
+        }
+
         // 拖动功能
         let isDragging = false;
         let currentX;
@@ -392,10 +468,21 @@
                 
                 cardInfoDisplay.innerHTML = `
                     <div style="margin-bottom: 15px;">
-                        <strong>卡号：</strong>${card.card_number}<br>
-                        <strong>有效期：</strong>${month}/${year}<br>
-                        <strong>CVV：</strong>${card.cvv}<br>
-                        <strong>类型：</strong>${card.card_type}
+                        <div style="display: flex; align-items: center; margin-bottom: 4px;">
+                            <strong>卡号：</strong>${card.card_number}
+                            <span id="copy-card-number"></span>
+                        </div>
+                        <div style="display: flex; align-items: center; margin-bottom: 4px;">
+                            <strong>有效期：</strong>${month}/${year}
+                            <span id="copy-card-expiry"></span>
+                        </div>
+                        <div style="display: flex; align-items: center; margin-bottom: 4px;">
+                            <strong>CVV：</strong>${card.cvv}
+                            <span id="copy-card-cvv"></span>
+                        </div>
+                        <div style="display: flex; align-items: center;">
+                            <strong>类型：</strong>${card.card_type}
+                        </div>
                     </div>
                     <button id="deleteCardInfo" style="
                         width: 100%;
@@ -419,6 +506,11 @@
                         删除卡号
                     </button>
                 `;
+
+                // 添加复制按钮
+                document.getElementById('copy-card-number').appendChild(createCopyButton(card.card_number));
+                document.getElementById('copy-card-expiry').appendChild(createCopyButton(`${month}/${year}`));
+                document.getElementById('copy-card-cvv').appendChild(createCopyButton(card.cvv));
 
                 if (!filled) {
                     cardInfoDisplay.insertAdjacentHTML('beforeend', '<div style="color: #ff4b2b; margin-top: 10px; text-align: center;" class="error-message">⚠️ 自动填充失败</div>');
@@ -515,14 +607,48 @@
                 
                 geoInfoDisplay.innerHTML = `
                     <div style="margin-bottom: 10px;">
-                        <strong>姓名：</strong>${geoData.user.firstName} ${geoData.user.lastName}<br>
-                        <strong>地址：</strong>${geoData.address.combinedAddress}<br>
-                        <strong>城市：</strong>${geoData.address.city}<br>
-                        <strong>州/省：</strong>${geoData.address.state}<br>
-                        <strong>邮编：</strong>${geoData.address.postcode}<br>
-                        <strong>国家：</strong>${geoData.address.country}
+                        <div style="display: flex; align-items: center; margin-bottom: 4px;">
+                            <strong>姓名：</strong>${geoData.user.firstName} ${geoData.user.lastName}
+                            <span id="copy-user-name"></span>
+                        </div>
+                        <div style="display: flex; align-items: center; margin-bottom: 4px;">
+                            <strong>地址：</strong>${geoData.address.combinedAddress}
+                            <span id="copy-address"></span>
+                        </div>
+                        <div style="display: flex; align-items: center; margin-bottom: 4px;">
+                            <strong>城市：</strong>${geoData.address.city}
+                            <span id="copy-city"></span>
+                        </div>
+                        <div style="display: flex; align-items: center; margin-bottom: 4px;">
+                            <strong>州/省：</strong>${geoData.address.state}
+                            <span id="copy-state"></span>
+                        </div>
+                        <div style="display: flex; align-items: center; margin-bottom: 4px;">
+                            <strong>邮编：</strong>${geoData.address.postcode}
+                            <span id="copy-zip"></span>
+                        </div>
+                        <div style="display: flex; align-items: center;">
+                            <strong>国家：</strong>${geoData.address.country}
+                        </div>
                     </div>
                 `;
+                
+                // 添加复制按钮
+                document.getElementById('copy-user-name').appendChild(
+                    createCopyButton(`${geoData.user.firstName} ${geoData.user.lastName}`)
+                );
+                document.getElementById('copy-address').appendChild(
+                    createCopyButton(geoData.address.combinedAddress)
+                );
+                document.getElementById('copy-city').appendChild(
+                    createCopyButton(geoData.address.city)
+                );
+                document.getElementById('copy-state').appendChild(
+                    createCopyButton(geoData.address.state)
+                );
+                document.getElementById('copy-zip').appendChild(
+                    createCopyButton(geoData.address.postcode)
+                );
 
                 if (!filled) {
                     geoInfoDisplay.insertAdjacentHTML('beforeend', '<div style="color: #ff4b2b; margin-top: 10px; text-align: center;" class="error-message">⚠️ 自动填充失败</div>');
