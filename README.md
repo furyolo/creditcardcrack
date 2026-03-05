@@ -1,238 +1,422 @@
-# Credit Card Generator Tool
+# Credit Card Test Tool
 
-一个用于生成有效测试用信用卡号码的工具集，主要用于支付系统测试和开发环境。
+**Language / 语言选择:**
+**English** | [中文文档](README.zh-CN.md)
 
-## 功能特点
+---
 
-- **信用卡生成**
+A comprehensive toolkit for generating test credit card numbers and related information, designed specifically for payment system development and testing environments.
 
-  - 生成符合 Luhn 算法的有效信用卡号码
-  - 支持多种信用卡类型 (Visa, MasterCard, Discover, JCB)
-  - 自动生成有效期和CVV码
-  - 支持批量生成和单张生成
+## 📋 Table of Contents
 
-- **地址信息生成**
+- [Features](#features)
+- [System Requirements](#system-requirements)
+- [Project Architecture](#project-architecture)
+- [Quick Start](#quick-start)
+- [API Documentation](#api-documentation)
+- [Userscripts](#userscripts)
+- [FAQ](#faq)
 
-  - 基于IP自动获取地理位置信息
-  - 生成真实有效的地址信息
-  - 支持多国家地址格式
-  - 自动匹配国家代码
+## ✨ Features
 
-- **用户信息生成**
+### 🎴 Credit Card Generation
 
-  - 生成随机用户姓名
-  - 生成有效的电话号码
-  - 生成SSN号码
-  - 支持多国家用户信息
+- Generate valid test card numbers compliant with Luhn algorithm
+- Support multiple card types: Visa, MasterCard, Discover, JCB
+- Auto-generate expiration dates (MM/YYYY) and CVV codes
+- Support both batch and single card generation
+- Database persistence storage
 
-- **表单自动填充**
+### 🌍 Geolocation Services
 
-  - 支持Stripe支付表单自动填充
-  - 智能识别表单字段
-  - 支持信用卡和地址信息一键填充
-  - 支持删除已使用的卡号
+- Auto-fetch geolocation based on real IP
+- Reverse geocoding using OpenStreetMap
+- Generate complete address information (house number, street, city, state, postal code)
+- Auto-match country codes
 
-## 系统要求
+### 👤 User Information Generation
 
-- Node.js >= 18
-- pnpm >= 10
-- PostgreSQL >= 14
-- 现代浏览器（Chrome、Firefox、Edge等）
+- Generate random test user names
+- Generate phone numbers in country-specific formats
+- Generate SSN/ID numbers
+- Support multi-country user information (based on IP geolocation)
 
-## 项目结构
+### 🤖 Browser Automation
 
-```text
+- **StripeHelper** - Auto-fill Stripe payment forms
+- **GenCreditNum** - Credit card number generation and management interface
+- **GeoUserInfo** - Geolocation and user information retrieval
+- Intelligent form field recognition
+- One-click copy functionality
+- Draggable floating window
+
+### 🔐 API Security
+
+- API Key authentication mechanism
+- Configurable authentication toggle
+- Request header validation (x-api-key)
+
+## 📦 System Requirements
+
+- **Node.js** >= 18.0.0
+- **pnpm** >= 10.0.0
+- **PostgreSQL** >= 14
+- **Browser Extension**: Tampermonkey (Chrome/Firefox/Edge)
+
+## 🏗️ Project Architecture
+
+```
 creditcardcrack/
-├── packages/                     # 项目代码包
-│   ├── api-server/               # 后端 API 服务器
-│   │   ├── src/                  # 源代码
-│   │   │   ├── server.js         # 服务器入口文件
-│   │   │   └── routes/           # API路由定义
-│   │   ├── prisma/               # Prisma ORM配置
-│   │   │   ├── schema.prisma     # 数据库模型定义
-│   │   │   └── migrations/       # 数据库迁移文件
-│   │   ├── .env                  # 环境配置
-│   │   └── package.json          # 依赖管理
+├── packages/
+│   ├── api-server/              # Backend API service
+│   │   ├── src/
+│   │   │   ├── server.js        # Fastify server entry
+│   │   │   ├── controllers/     # Business logic controllers
+│   │   │   │   └── cardController.js
+│   │   │   ├── routes/          # API route definitions
+│   │   │   │   └── cardRoutes.js
+│   │   │   ├── hooks/           # Request hooks (authentication)
+│   │   │   │   └── apiKeyAuth.js
+│   │   │   └── db/              # Database client
+│   │   │       └── prismaClient.js
+│   │   ├── prisma/
+│   │   │   ├── schema.prisma    # Data model definitions
+│   │   │   └── migrations/      # Database migrations
+│   │   └── package.json
 │   │
-│   └── userscripts/              # 浏览器用户脚本
-│       ├── StripeHelper.user.js  # Stripe支付助手
-│       ├── GenCreditNum.user.js  # 信用卡号生成工具
-│       └── GeoUserInfo.js        # 地理和用户信息助手
+│   └── userscripts/             # Browser userscripts
+│       ├── StripeHelper.user.js      # Stripe form helper
+│       ├── GenCreditNum.user.js      # Card number generator
+│       ├── GeoUserInfo.user.js       # Geo info retrieval
+│       └── GeoUserInfo.lib.js        # Shared library
 │
-├── .gitignore                    # Git忽略文件
-└── README.md                     # 项目说明文档
+├── package.json                 # Root project config
+├── CLAUDE.md                    # AI assistant guide
+└── README.md                    # Project documentation
 ```
 
-## 安装与使用
+### Tech Stack
 
-### API 服务器
+**Backend:**
+- Fastify - High-performance web framework
+- Prisma - Modern ORM
+- PostgreSQL - Relational database
+- Swagger/OpenAPI - API documentation
 
-1. 克隆项目并进入目录
+**Frontend/Scripts:**
+- Tampermonkey - Userscript manager
+- GM API - Cross-origin requests and storage
 
-   ```bash
-   git clone https://github.com/yourusername/creditcardcrack.git
-   cd creditcardcrack
-   ```
+## 🚀 Quick Start
 
-2. 安装依赖
+### 1. Clone the Repository
 
-   ```bash
-   pnpm install
-   ```
+```bash
+git clone https://github.com/yourusername/creditcardcrack.git
+cd creditcardcrack
+```
 
-3. 配置环境变量
+### 2. Install Dependencies
 
-   ```bash
-   cp packages/api-server/.env.example packages/api-server/.env
-   ```
+```bash
+pnpm install
+```
 
-   编辑 `.env` 文件，配置以下信息：
+### 3. Configure Environment Variables
 
-   ```ini
-   DATABASE_URL="postgresql://user:password@localhost:5432/creditcards?schema=public"
-   REQUIRE_API_KEY=true
-   API_KEY=YOUR_API_KEY
-   ```
+Create `packages/api-server/.env` file:
 
-   如仅本地调试，可将 `REQUIRE_API_KEY=false` 以禁用鉴权。
+```ini
+# Database connection
+DATABASE_URL="postgresql://user:password@localhost:5432/creditcards?schema=public"
 
-4. 初始化数据库
+# Server configuration
+HOST="0.0.0.0"
+PORT="3227"
 
-   ```bash
-   # 在项目根目录执行
-   pnpm db:migrate
-   # 或者在api-server目录下执行
-   cd packages/api-server
-   npx prisma migrate dev
-   ```
+# API authentication (optional)
+REQUIRE_API_KEY=true
+API_KEY=your_secret_api_key_here
+```
 
-5. 启动服务器
+**Authentication Notes:**
+- `REQUIRE_API_KEY=false` - Disable authentication (local development only)
+- `REQUIRE_API_KEY=true` - Enable authentication (recommended for production)
 
-   ```bash
-   # 在项目根目录执行
-   pnpm start:api
-   # 或者在api-server目录下执行
-   cd packages/api-server
-   pnpm start
-   ```
+### 4. Initialize Database
 
-### 用户脚本安装
+```bash
+# Run database migrations
+pnpm db:migrate
 
-1. 安装浏览器扩展
+# (Optional) Open database management interface
+pnpm db:studio
+```
 
-   - Chrome: 安装 [Tampermonkey](https://chrome.google.com/webstore/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo)
-   - Firefox: 安装 [Tampermonkey](https://addons.mozilla.org/en-US/firefox/addon/tampermonkey/)
-   - Edge: 安装 [Tampermonkey](https://microsoftedge.microsoft.com/addons/detail/tampermonkey/iikmkjmpaadaobahmlepeloendndfphd)
+### 5. Start API Server
 
-2. 安装用户脚本（以下两种方法二选一）：
+```bash
+# Production mode
+pnpm start:api
 
-   **方法1: 从本地文件安装**
+# Development mode (with hot reload)
+pnpm dev:api
+```
 
-   - 打开Tampermonkey -> 仪表盘 -> 实用工具 -> 导入脚本
-   - 选择项目中 `packages/userscripts/` 目录下的 `.js` 和 `.user.js` 文件
+Server will run at `http://localhost:3227`
 
-   **方法2: 如果服务器已配置脚本访问路径**
+### 6. Install Userscripts
 
-   - 启动API服务器后访问 `http://localhost:3227/scripts/StripeHelper.user.js`
-   - 点击"安装"按钮
-   - 重复上述步骤安装 `GeoUserInfo.js` 和 `GenCreditNum.user.js`
+#### Method 1: Install from Local Files
 
-> 注意：启用 `REQUIRE_API_KEY=true` 后，用户脚本首次调用接口会提示输入 API Key，并保存到脚本存储中用于后续请求。
+1. Install [Tampermonkey](https://www.tampermonkey.net/) browser extension
+2. Open Tampermonkey Dashboard
+3. Click "Utilities" → "Import"
+4. Select files from `packages/userscripts/` directory:
+   - `GeoUserInfo.lib.js` (must install first)
+   - `StripeHelper.user.js`
+   - `GenCreditNum.user.js`
+   - `GeoUserInfo.user.js`
 
-## API 文档
+#### Method 2: Install via URL (if server is configured)
 
-启动服务器后，可通过以下地址访问 Swagger API 文档：
-`http://localhost:3227/documentation`
+Visit the following URLs and click install:
+- `http://localhost:3227/scripts/StripeHelper.user.js`
+- `http://localhost:3227/scripts/GenCreditNum.user.js`
+- `http://localhost:3227/scripts/GeoUserInfo.user.js`
 
-### 主要API端点
+**First-time Use:**
+When API Key authentication is enabled, userscripts will prompt for API Key on first API call. The key will be saved automatically.
 
-所有 API 请求需要携带请求头 `x-api-key`。
+## 📚 API Documentation
 
-- `GET /random-card` - 获取随机信用卡信息
-- `DELETE /card/:cardNumber` - 删除指定卡号
-- `POST /save-cards` - 批量保存信用卡信息
-- `PUT /card/:cardNumber` - 更新信用卡信息
+Access Swagger documentation after starting the server:
+```
+http://localhost:3227/documentation
+```
 
-## 常见问题
+### Main Endpoints
 
-1. **数据库连接失败**
+All requests require `x-api-key` header (if authentication is enabled).
 
-   - 检查数据库服务是否运行
-   - 验证数据库连接字符串是否正确
-   - 确认数据库用户权限
+#### Get Random Card
+```http
+GET /random-card?type=visa
+```
 
-2. **用户脚本不生效**
+**Query Parameters:**
+- `type` (optional): Card type - `visa`, `mastercard`, `discover`, `jcb`
 
-   - 确认Tampermonkey已正确安装
-   - 检查脚本是否在正确的网站上运行
-   - 查看浏览器控制台是否有错误信息
+**Response Example:**
+```json
+{
+  "success": true,
+  "card": {
+    "card_type": "VISA",
+    "card_number": "4532123456789012",
+    "expire_month": "12",
+    "expire_year": "2028",
+    "cvv": "123",
+    "formatted_info": "4532 1234 5678 9012 | 12/2028 | 123"
+  }
+}
+```
 
-3. **API请求失败**
+#### Batch Save Cards
+```http
+POST /save-cards
+Content-Type: application/json
 
-   - 确认API服务器正在运行
-   - 检查网络连接
-   - 验证请求URL和参数是否正确
+{
+  "cards": [
+    {
+      "card_type": "VISA",
+      "card_number": "4532123456789012",
+      "expire_month": "12",
+      "expire_year": "2028",
+      "cvv": "123",
+      "formatted_info": "4532 1234 5678 9012 | 12/2028 | 123"
+    }
+  ]
+}
+```
 
-4. **生成的信用卡号码安全性**
+#### Delete Card
+```http
+DELETE /card/4532123456789012
+```
 
-   - 生成的卡号仅用于测试环境
-   - 所有生成的卡号都带有特殊标记
-   - 定期清理已使用的测试卡号
-   - 不建议在生产环境中使用
+#### Update Card Information
+```http
+PUT /card/4532123456789012
+Content-Type: application/json
 
-5. **批量生成时的性能问题**
+{
+  "expire_month": "06",
+  "expire_year": "2029"
+}
+```
 
-   - 建议单次生成不超过100张卡
-   - 使用数据库缓存提高性能
-   - 可以通过API参数调整生成速度
-   - 支持断点续传功能
+#### Get Statistics
+```http
+GET /stats
+```
 
-6. **地址信息的准确性**
+**Response Example:**
+```json
+{
+  "success": true,
+  "stats": {
+    "total": 150,
+    "by_type": [
+      { "card_type": "VISA", "count": 80 },
+      { "card_type": "MASTERCARD", "count": 70 }
+    ]
+  }
+}
+```
 
-   - 地址数据来源于公开地理数据库
-   - 定期更新地址库确保准确性
-   - 支持手动修正地址信息
-   - 提供地址验证API
+## 🔧 Userscripts
 
-7. **跨浏览器兼容性**
+### StripeHelper - Stripe Payment Assistant
 
-   - 完整支持Chrome、Firefox和Edge最新版本
-   - Safari需要额外配置
-   - 移动浏览器可能存在限制
-   - 建议使用Chrome获得最佳体验
+**Applicable Pages:**
+- `https://checkout.stripe.com/c/pay*`
+- `https://billing.stripe.com/p*`
 
-8. **数据保护和隐私**
+**Features:**
+- Auto-fill credit card information
+- Auto-fill billing address
+- One-click copy card number/CVV/postal code
+- Delete used card numbers
 
-   - 所有生成的数据仅存储在本地
-   - 支持数据自动清理功能
-   - 不收集任何真实用户信息
-   - 提供数据导出和删除功能
+**Usage:**
+1. Visit Stripe payment page
+2. Click "Generate Credit Card" button in floating window
+3. Select card type (Visa/MasterCard/Discover/JCB)
+4. Click "Get Address Info" to auto-fill address
+5. Form will be auto-filled
 
-## 更新日志
+### GenCreditNum - Credit Card Generator
 
-### v1.0.0 (2024-03-31)
+**Applicable Pages:**
+- `https://uncoder.eu.org/cc-checker/*`
 
-- 初始版本发布
-- 支持基本信用卡生成功能
-- 支持地址和用户信息生成
-- 支持Stripe表单自动填充
+**Features:**
+- Generate single or batch credit card numbers
+- Real-time Luhn algorithm validation
+- One-click copy functionality
+- Save to database
 
-## 贡献指南
+### GeoUserInfo - Geo Information Assistant
 
-1. Fork 项目
+**Applicable Pages:**
+- `https://uncoder.eu.org/cc-checker/*`
 
-2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
+**Features:**
+- Fetch geolocation based on IP
+- Generate complete address information
+- Generate random user information
+- Auto-match country codes
 
-3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
+## ❓ FAQ
 
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
+### 1. Database Connection Failed
 
-5. 创建 Pull Request
+**Issue:** `Error: Can't reach database server`
 
-## 许可证
+**Solutions:**
+- Confirm PostgreSQL service is running
+- Verify `DATABASE_URL` in `.env` is correct
+- Check database user permissions
+- Confirm database is created: `CREATE DATABASE creditcards;`
 
-本项目仅用于教育目的和开发测试，不得用于任何非法活动。使用本工具进行任何非法活动造成的后果由使用者自行承担。
+### 2. Userscript Not Working
 
-## 联系方式
+**Issue:** No floating window after script installation
 
-- 提交 Issue
+**Solutions:**
+- Confirm Tampermonkey is enabled
+- Check if script runs on correct website (check `@match` rules)
+- Open browser console for error messages
+- Confirm `GeoUserInfo.lib.js` is properly installed
+
+### 3. API Request Failed (401 Unauthorized)
+
+**Issue:** `{"success": false, "error": "Missing API key"}`
+
+**Solutions:**
+- Confirm `REQUIRE_API_KEY=true` in `.env`
+- Enter correct API Key in userscript
+- Check if request header contains `x-api-key`
+- For local testing, set `REQUIRE_API_KEY=false`
+
+### 4. Cross-Origin Request Blocked
+
+**Issue:** CORS error
+
+**Solutions:**
+- Confirm `@connect` directive in Tampermonkey includes target domain
+- API server has CORS enabled (default configuration)
+- Use `GM_xmlhttpRequest` instead of `fetch`
+
+### 5. Generated Card Number Invalid
+
+**Issue:** Luhn algorithm validation failed
+
+**Solutions:**
+- Check if BIN prefix is correct
+- Confirm card number length is 16 digits
+- Verify Luhn checksum calculation in generation logic
+
+### 6. Address Information Retrieval Failed
+
+**Issue:** OpenStreetMap API returns error
+
+**Solutions:**
+- Check network connection
+- Confirm IP geolocation service is available
+- OSM Nominatim has rate limits (1 request/second)
+- Consider adding `User-Agent` and `email` parameters
+
+### 7. Batch Generation Performance Issues
+
+**Issue:** Slow when generating large batches
+
+**Solutions:**
+- Recommend generating no more than 100 cards per batch
+- Use database caching to improve performance
+- Consider using database transactions for batch operations
+- Monitor database connection pool
+
+### 8. Data Privacy and Security
+
+**Issue:** Concerns about data storage
+
+**Solutions:**
+- All generated data is test data only
+- Data stored locally in your database
+- No real user information is collected
+- Regularly clean test data
+- Never use in production environment
+
+## ⚠️ Legal Disclaimer
+
+This tool is for educational purposes and development testing only. It must not be used for any illegal activities. Users are solely responsible for any consequences arising from misuse of this tool.
+
+## 📝 License
+
+This project is for educational and testing purposes only.
+
+## 🤝 Contributing
+
+1. Fork the project
+2. Create feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to branch (`git push origin feature/AmazingFeature`)
+5. Create Pull Request
+
+## 📧 Contact
+
+- Submit an Issue on GitHub
+

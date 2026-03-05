@@ -10,6 +10,7 @@
 // @grant        GM_setClipboard
 // @grant        GM_getValue
 // @grant        GM_setValue
+// @require      file:///D:/Coding/creditcardcrack/packages/userscripts/GeoUserInfo.lib.js
 // @connect      localhost
 // @connect      ip.011102.xyz
 // @connect      nominatim.openstreetmap.org
@@ -46,118 +47,11 @@
         }
         return { [API_KEY_HEADER]: apiKey };
     }
-
-    const OSM_BASE_URL = 'https://nominatim.openstreetmap.org/reverse';
-    const OSM_FORMAT = 'jsonv2';
-    const OSM_ZOOM = 18;
-    const NOMINATIM_EMAIL = '';
-    const NOMINATIM_USER_AGENT = 'creditcardcrack/1.0';
-
-    function parseJsonResponse(response, source) {
-        const text = response && response.responseText ? response.responseText : '';
-        if (response && response.status && response.status !== 200) {
-            throw new Error(`${source} HTTP ${response.status}: ${text.slice(0, 200)}`);
+    async function fetchGeoAndUserInfo() {
+        if (!window.GeoUserInfo || typeof window.GeoUserInfo.fetchGeoAndUserInfo !== 'function') {
+            throw new Error('GeoUserInfo.lib.js 未加载');
         }
-        try {
-            return JSON.parse(text);
-        } catch (error) {
-            throw new Error(`${source} 返回非 JSON：${text.slice(0, 200)}`);
-        }
-    }
-
-    function buildOsmUrl(latitude, longitude) {
-        const url = new URL(OSM_BASE_URL);
-        url.searchParams.set('format', OSM_FORMAT);
-        url.searchParams.set('lat', String(latitude));
-        url.searchParams.set('lon', String(longitude));
-        url.searchParams.set('zoom', String(OSM_ZOOM));
-        url.searchParams.set('addressdetails', '1');
-        url.searchParams.set('accept-language', 'en');
-        if (NOMINATIM_EMAIL) {
-            url.searchParams.set('email', NOMINATIM_EMAIL);
-        }
-        return url.toString();
-    }
-
-    function gmGetJson({ url, headers, source }) {
-        return new Promise((resolve, reject) => {
-            GM_xmlhttpRequest({
-                method: 'GET',
-                url,
-                headers,
-                onload: function(response) {
-                    try {
-                        resolve(parseJsonResponse(response, source));
-                    } catch (error) {
-                        reject(error);
-                    }
-                },
-                onerror: function(error) {
-                    reject(new Error(`${source} 请求失败: ${error.message}`));
-                }
-            });
-        });
-    }
-
-    async function fetchIpInfo() {
-        const data = await gmGetJson({
-            url: 'https://ip.011102.xyz/',
-            headers: { 'Accept': 'application/json' },
-            source: 'IP 接口'
-        });
-        return {
-            countryCode: data.IP.Country,
-            latitude: data.IP.Latitude,
-            longitude: data.IP.Longitude
-        };
-    }
-
-    async function fetchOsmAddress(ipInfo) {
-        const data = await gmGetJson({
-            url: buildOsmUrl(ipInfo.latitude, ipInfo.longitude),
-            headers: {
-                'User-Agent': NOMINATIM_USER_AGENT,
-                'Accept': 'application/json'
-            },
-            source: 'OSM 反查'
-        });
-        const address = data.address || {};
-        const addressInfo = {
-            houseNumber: address.house_number || 'N/A',
-            building: address.building || 'N/A',
-            road: address.road || 'N/A',
-            suburb: address.suburb || 'N/A',
-            city: address.city || address.town || 'N/A',
-            state: address.state || 'N/A',
-            postcode: address.postcode || 'N/A',
-            country: address.country || 'N/A'
-        };
-        const addressParts = [
-            addressInfo.houseNumber,
-            addressInfo.building,
-            addressInfo.road,
-            addressInfo.suburb
-        ].filter(part => part !== 'N/A');
-        return {
-            ...addressInfo,
-            combinedAddress: addressParts.join(', ') || 'N/A'
-        };
-    }
-
-    async function fetchRandomUser(countryCode) {
-        const data = await gmGetJson({
-            url: `https://randomuser.me/api/?nat=${countryCode}`,
-            headers: { 'Accept': 'application/json' },
-            source: 'RandomUser'
-        });
-        const user = data.results[0] || {};
-        return {
-            gender: user.gender || 'N/A',
-            firstName: user.name?.first || 'N/A',
-            lastName: user.name?.last || 'N/A',
-            phone: user.phone || 'N/A',
-            SSN: user.id?.value || 'N/A'
-        };
+        return window.GeoUserInfo.fetchGeoAndUserInfo();
     }
 
     // 从API获取随机信用卡信息
@@ -198,20 +92,6 @@
                 }
             });
         });
-    }
-
-    // 获取地理位置和用户信息
-    async function fetchGeoAndUserInfo() {
-        const ipInfo = await fetchIpInfo();
-        const [address, user] = await Promise.all([
-            fetchOsmAddress(ipInfo),
-            fetchRandomUser(ipInfo.countryCode)
-        ]);
-        return {
-            ip: ipInfo,
-            address,
-            user
-        };
     }
 
     // 创建UI
