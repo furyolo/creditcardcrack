@@ -89,8 +89,12 @@ creditcardcrack/
    编辑 `.env` 文件，配置以下信息：
 
    ```ini
-   DATABASE_URL="postgresql://user:password@localhost:5432/creditcard_db"
+   DATABASE_URL="postgresql://user:password@localhost:5432/creditcards?schema=public"
+   REQUIRE_API_KEY=true
+   API_KEY=YOUR_API_KEY
    ```
+
+   如仅本地调试，可将 `REQUIRE_API_KEY=false` 以禁用鉴权。
 
 4. 初始化数据库
 
@@ -129,16 +133,20 @@ creditcardcrack/
 
    **方法2: 如果服务器已配置脚本访问路径**
 
-   - 启动API服务器后访问 `http://localhost:3000/scripts/StripeHelper.user.js`
+   - 启动API服务器后访问 `http://localhost:3227/scripts/StripeHelper.user.js`
    - 点击"安装"按钮
    - 重复上述步骤安装 `GeoUserInfo.js` 和 `GenCreditNum.user.js`
+
+> 注意：启用 `REQUIRE_API_KEY=true` 后，用户脚本首次调用接口会提示输入 API Key，并保存到脚本存储中用于后续请求。
 
 ## API 文档
 
 启动服务器后，可通过以下地址访问 Swagger API 文档：
-`http://localhost:3000/documentation`
+`http://localhost:3227/documentation`
 
 ### 主要API端点
+
+所有 API 请求需要携带请求头 `x-api-key`。
 
 - `GET /random-card` - 获取随机信用卡信息
 - `DELETE /card/:cardNumber` - 删除指定卡号

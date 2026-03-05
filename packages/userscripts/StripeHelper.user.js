@@ -8,6 +8,8 @@
 // @match        https://billing.stripe.com/p*
 // @grant        GM_xmlhttpRequest
 // @grant        GM_setClipboard
+// @grant        GM_getValue
+// @grant        GM_setValue
 // @connect      localhost
 // @connect      ip.011102.xyz
 // @connect      nominatim.openstreetmap.org
@@ -17,17 +19,168 @@
 (function() {
     'use strict';
 
+    const API_KEY_STORAGE = 'cc_api_key';
+    const API_KEY_HEADER = 'x-api-key';
+
+    function getApiKey() {
+        const stored = GM_getValue(API_KEY_STORAGE, '');
+        if (stored) {
+            return stored;
+        }
+        const input = window.prompt('请输入 API Key（用于本地测试接口）');
+        if (!input) {
+            return '';
+        }
+        const trimmed = input.trim();
+        if (!trimmed) {
+            return '';
+        }
+        GM_setValue(API_KEY_STORAGE, trimmed);
+        return trimmed;
+    }
+
+    function buildAuthHeaders() {
+        const apiKey = getApiKey();
+        if (!apiKey) {
+            return null;
+        }
+        return { [API_KEY_HEADER]: apiKey };
+    }
+
+    const OSM_BASE_URL = 'https://nominatim.openstreetmap.org/reverse';
+    const OSM_FORMAT = 'jsonv2';
+    const OSM_ZOOM = 18;
+    const NOMINATIM_EMAIL = '';
+    const NOMINATIM_USER_AGENT = 'creditcardcrack/1.0';
+
+    function parseJsonResponse(response, source) {
+        const text = response && response.responseText ? response.responseText : '';
+        if (response && response.status && response.status !== 200) {
+            throw new Error(`${source} HTTP ${response.status}: ${text.slice(0, 200)}`);
+        }
+        try {
+            return JSON.parse(text);
+        } catch (error) {
+            throw new Error(`${source} 返回非 JSON：${text.slice(0, 200)}`);
+        }
+    }
+
+    function buildOsmUrl(latitude, longitude) {
+        const url = new URL(OSM_BASE_URL);
+        url.searchParams.set('format', OSM_FORMAT);
+        url.searchParams.set('lat', String(latitude));
+        url.searchParams.set('lon', String(longitude));
+        url.searchParams.set('zoom', String(OSM_ZOOM));
+        url.searchParams.set('addressdetails', '1');
+        url.searchParams.set('accept-language', 'en');
+        if (NOMINATIM_EMAIL) {
+            url.searchParams.set('email', NOMINATIM_EMAIL);
+        }
+        return url.toString();
+    }
+
+    function gmGetJson({ url, headers, source }) {
+        return new Promise((resolve, reject) => {
+            GM_xmlhttpRequest({
+                method: 'GET',
+                url,
+                headers,
+                onload: function(response) {
+                    try {
+                        resolve(parseJsonResponse(response, source));
+                    } catch (error) {
+                        reject(error);
+                    }
+                },
+                onerror: function(error) {
+                    reject(new Error(`${source} 请求失败: ${error.message}`));
+                }
+            });
+        });
+    }
+
+    async function fetchIpInfo() {
+        const data = await gmGetJson({
+            url: 'https://ip.011102.xyz/',
+            headers: { 'Accept': 'application/json' },
+            source: 'IP 接口'
+        });
+        return {
+            countryCode: data.IP.Country,
+            latitude: data.IP.Latitude,
+            longitude: data.IP.Longitude
+        };
+    }
+
+    async function fetchOsmAddress(ipInfo) {
+        const data = await gmGetJson({
+            url: buildOsmUrl(ipInfo.latitude, ipInfo.longitude),
+            headers: {
+                'User-Agent': NOMINATIM_USER_AGENT,
+                'Accept': 'application/json'
+            },
+            source: 'OSM 反查'
+        });
+        const address = data.address || {};
+        const addressInfo = {
+            houseNumber: address.house_number || 'N/A',
+            building: address.building || 'N/A',
+            road: address.road || 'N/A',
+            suburb: address.suburb || 'N/A',
+            city: address.city || address.town || 'N/A',
+            state: address.state || 'N/A',
+            postcode: address.postcode || 'N/A',
+            country: address.country || 'N/A'
+        };
+        const addressParts = [
+            addressInfo.houseNumber,
+            addressInfo.building,
+            addressInfo.road,
+            addressInfo.suburb
+        ].filter(part => part !== 'N/A');
+        return {
+            ...addressInfo,
+            combinedAddress: addressParts.join(', ') || 'N/A'
+        };
+    }
+
+    async function fetchRandomUser(countryCode) {
+        const data = await gmGetJson({
+            url: `https://randomuser.me/api/?nat=${countryCode}`,
+            headers: { 'Accept': 'application/json' },
+            source: 'RandomUser'
+        });
+        const user = data.results[0] || {};
+        return {
+            gender: user.gender || 'N/A',
+            firstName: user.name?.first || 'N/A',
+            lastName: user.name?.last || 'N/A',
+            phone: user.phone || 'N/A',
+            SSN: user.id?.value || 'N/A'
+        };
+    }
+
     // 从API获取随机信用卡信息
     async function fetchRandomCard(cardType) {
         return new Promise((resolve, reject) => {
             const url = cardType ? 
-                `http://localhost:3000/random-card?type=${cardType}` : 
-                'http://localhost:3000/random-card';
+                `http://localhost:3227/random-card?type=${cardType}` : 
+                'http://localhost:3227/random-card';
+
+            const authHeaders = buildAuthHeaders();
+            if (!authHeaders) {
+                reject(new Error('缺少 API Key'));
+                return;
+            }
+
+            const headers = Object.assign({
+                'Accept': 'application/json'
+            }, authHeaders);
 
             GM_xmlhttpRequest({
                 method: 'GET',
                 url: url,
-                headers: { 'Accept': 'application/json' },
+                headers,
                 onload: function(response) {
                     try {
                         const data = JSON.parse(response.responseText);
@@ -49,95 +202,16 @@
 
     // 获取地理位置和用户信息
     async function fetchGeoAndUserInfo() {
-        return new Promise((resolve, reject) => {
-            let requestsCompleted = 0;
-            
-            function checkAllRequestsComplete() {
-                requestsCompleted++;
-                if (requestsCompleted === 3) {
-                    resolve(window.GeoData);
-                }
-            }
-
-            // 获取IP信息
-            GM_xmlhttpRequest({
-                method: 'GET',
-                url: 'https://ip.011102.xyz/',
-                onload: function(response) {
-                    const data = JSON.parse(response.responseText);
-                    window.GeoData = window.GeoData || {};
-                    window.GeoData.ip = {
-                        countryCode: data.IP.Country,
-                        latitude: data.IP.Latitude,
-                        longitude: data.IP.Longitude
-                    };
-
-                    // 获取地址信息
-                    const osmUrl = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${window.GeoData.ip.latitude}&lon=${window.GeoData.ip.longitude}&zoom=18&addressdetails=1&accept-language=en`;
-                    GM_xmlhttpRequest({
-                        method: 'GET',
-                        url: osmUrl,
-                        headers: { 'User-Agent': 'Mozilla/5.0' },
-                        onload: function(osmResponse) {
-                            const addressData = JSON.parse(osmResponse.responseText);
-                            const address = addressData.address;
-                            
-                            window.GeoData.address = {
-                                houseNumber: address?.house_number || 'N/A',
-                                building: address?.building || 'N/A',
-                                road: address?.road || 'N/A',
-                                suburb: address?.suburb || 'N/A',
-                                city: address?.city || address?.town || 'N/A',
-                                state: address?.state || 'N/A',
-                                postcode: address?.postcode || 'N/A',
-                                country: address?.country || 'N/A'
-                            };
-                            
-                            const addressParts = [
-                                window.GeoData.address.houseNumber,
-                                window.GeoData.address.building,
-                                window.GeoData.address.road,
-                                window.GeoData.address.suburb
-                            ].filter(part => part !== 'N/A');
-                            
-                            window.GeoData.address.combinedAddress = addressParts.join(', ') || 'N/A';
-                            checkAllRequestsComplete();
-                        },
-                        onerror: function() {
-                            checkAllRequestsComplete();
-                        }
-                    });
-
-                    // 获取随机用户信息
-                    const randomUserUrl = `https://randomuser.me/api/?nat=${window.GeoData.ip.countryCode}`;
-                    GM_xmlhttpRequest({
-                        method: 'GET',
-                        url: randomUserUrl,
-                        onload: function(userResponse) {
-                            const userData = JSON.parse(userResponse.responseText);
-                            const user = userData.results[0];
-                            
-                            window.GeoData.user = {
-                                gender: user.gender || 'N/A',
-                                firstName: user.name.first || 'N/A',
-                                lastName: user.name.last || 'N/A',
-                                phone: user.phone || 'N/A',
-                                SSN: user.id.value || 'N/A'
-                            };
-                            checkAllRequestsComplete();
-                        },
-                        onerror: function() {
-                            checkAllRequestsComplete();
-                        }
-                    });
-
-                    checkAllRequestsComplete();
-                },
-                onerror: function(error) {
-                    reject(error);
-                }
-            });
-        });
+        const ipInfo = await fetchIpInfo();
+        const [address, user] = await Promise.all([
+            fetchOsmAddress(ipInfo),
+            fetchRandomUser(ipInfo.countryCode)
+        ]);
+        return {
+            ip: ipInfo,
+            address,
+            user
+        };
     }
 
     // 创建UI
@@ -220,14 +294,22 @@
         // 删除卡号功能
         async function deleteCardFromDB(cardNumber) {
             return new Promise((resolve, reject) => {
-                const url = `http://localhost:3000/card/${cardNumber}`;
+            const url = `http://localhost:3227/card/${cardNumber}`;
+
+                const authHeaders = buildAuthHeaders();
+                if (!authHeaders) {
+                    reject(new Error('缺少 API Key'));
+                    return;
+                }
+
+                const headers = Object.assign({
+                    'Accept': 'application/json'
+                }, authHeaders);
 
                 GM_xmlhttpRequest({
                     method: 'DELETE',
                     url: url,
-                    headers: { 
-                        'Accept': 'application/json'
-                    },
+                    headers,
                     onload: function(response) {
                         try {
                             const data = JSON.parse(response.responseText);

@@ -1,4 +1,15 @@
-import { saveCards, addCard, deleteCard, getRandomCard, updateCard, getCardStats } from '../controllers/cardController.js';
+function getRouteDependencies(options) {
+    if (!options?.cardController) {
+        throw new Error('cardController is required for cardRoutes');
+    }
+    if (!options?.apiKeyAuthHook) {
+        throw new Error('apiKeyAuthHook is required for cardRoutes');
+    }
+    return {
+        cardController: options.cardController,
+        apiKeyAuthHook: options.apiKeyAuthHook
+    };
+}
 
 // JSON Schema 定义
 const cardSchema = {
@@ -50,6 +61,11 @@ const updateCardSchema = {
 
 // 定义路由
 export default function cardRoutes(fastify, options, done) {
+    const { cardController, apiKeyAuthHook } = getRouteDependencies(options);
+    const { saveCards, addCard, deleteCard, getRandomCard, updateCard, getCardStats } = cardController;
+
+    fastify.addHook('onRequest', apiKeyAuthHook);
+
     // 批量保存信用卡信息
     fastify.post('/save-cards', {
         schema: {

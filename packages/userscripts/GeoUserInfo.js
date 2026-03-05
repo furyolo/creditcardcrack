@@ -7,6 +7,7 @@
 // @match        https://uncoder.eu.org/cc-checker/*
 // @grant        GM_xmlhttpRequest
 // @connect      ipapi.co
+// @connect      ip.011102.xyz
 // @connect      nominatim.openstreetmap.org
 // @connect      randomuser.me
 // ==/UserScript==
@@ -21,6 +22,38 @@
     function debugLog(...args) {
         if (DEBUG) {
             console.log(...args);
+        }
+    }
+
+    const OSM_BASE_URL = 'https://nominatim.openstreetmap.org/reverse';
+    const OSM_FORMAT = 'jsonv2';
+    const OSM_ZOOM = 18;
+    const NOMINATIM_EMAIL = '';
+    const NOMINATIM_USER_AGENT = 'creditcardcrack/1.0';
+
+    function buildOsmUrl(latitude, longitude) {
+        const url = new URL(OSM_BASE_URL);
+        url.searchParams.set('format', OSM_FORMAT);
+        url.searchParams.set('lat', String(latitude));
+        url.searchParams.set('lon', String(longitude));
+        url.searchParams.set('zoom', String(OSM_ZOOM));
+        url.searchParams.set('addressdetails', '1');
+        url.searchParams.set('accept-language', 'en');
+        if (NOMINATIM_EMAIL) {
+            url.searchParams.set('email', NOMINATIM_EMAIL);
+        }
+        return url.toString();
+    }
+
+    function parseJsonResponse(response, source) {
+        const text = response && response.responseText ? response.responseText : '';
+        if (response && response.status && response.status !== 200) {
+            throw new Error(`${source} HTTP ${response.status}: ${text.slice(0, 200)}`);
+        }
+        try {
+            return JSON.parse(text);
+        } catch (error) {
+            throw new Error(`${source} 返回非 JSON：${text.slice(0, 200)}`);
         }
     }
     
@@ -47,7 +80,14 @@
         method: 'GET',
         url: 'https://ip.011102.xyz/',
         onload: function(response) {
-            const data = JSON.parse(response.responseText);
+            let data;
+            try {
+                data = parseJsonResponse(response, 'IP 接口');
+            } catch (error) {
+                console.error('IP接口解析失败:', error);
+                checkAllRequestsComplete();
+                return;
+            }
             
             // 保存IP地理位置数据
             window.GeoData.ip = {
@@ -61,17 +101,25 @@
             debugLog('经度:', window.GeoData.ip.longitude);
             
             // 使用获取到的经纬度查询详细地址
-            const osmUrl = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${window.GeoData.ip.latitude}&lon=${window.GeoData.ip.longitude}&zoom=18&addressdetails=1&accept-language=en`;
+            const osmUrl = buildOsmUrl(window.GeoData.ip.latitude, window.GeoData.ip.longitude);
             
             // 发送OSM请求
             GM_xmlhttpRequest({
                 method: 'GET',
                 url: osmUrl,
                 headers: {
-                    'User-Agent': 'Mozilla/5.0'
+                    'User-Agent': NOMINATIM_USER_AGENT,
+                    'Accept': 'application/json'
                 },
                 onload: function(osmResponse) {
-                    const addressData = JSON.parse(osmResponse.responseText);
+                    let addressData;
+                    try {
+                        addressData = parseJsonResponse(osmResponse, 'OSM 反查');
+                    } catch (error) {
+                        console.error('获取地址详情失败:', error);
+                        checkAllRequestsComplete();
+                        return;
+                    }
                     const address = addressData.address;
                     
                     window.GeoData.address = {
@@ -119,7 +167,14 @@
                 method: 'GET',
                 url: randomUserUrl,
                 onload: function(userResponse) {
-                    const userData = JSON.parse(userResponse.responseText);
+                    let userData;
+                    try {
+                        userData = parseJsonResponse(userResponse, 'RandomUser');
+                    } catch (error) {
+                        console.error('获取用户数据失败:', error);
+                        checkAllRequestsComplete();
+                        return;
+                    }
                     const user = userData.results[0];
                     
                     window.GeoData.user = {

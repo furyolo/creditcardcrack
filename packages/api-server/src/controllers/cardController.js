@@ -1,218 +1,214 @@
-import pkg from '@prisma/client';
-const { PrismaClient } = pkg;
+const DUPLICATE_ERROR_CODE = 'P2002';
+const NOT_FOUND_ERROR_CODE = 'P2025';
 
-const prisma = new PrismaClient();
+const STATUS_BAD_REQUEST = 400;
+const STATUS_CONFLICT = 409;
+const STATUS_NOT_FOUND = 404;
+const STATUS_SERVER_ERROR = 500;
 
-// 批量保存信用卡信息
-export async function saveCards(request, reply) {
-    const { cards } = request.body;
-    
-    try {
-        const results = {
-            saved: [],
-            duplicates: []
-        };
+function mapCardData(card) {
+    return {
+        card_type: card.card_type,
+        card_number: card.card_number,
+        expire_month: card.expire_month,
+        expire_year: card.expire_year,
+        cvv: card.cvv,
+        formatted_info: card.formatted_info
+    };
+}
 
-        for (const card of cards) {
-            try {
-                const result = await prisma.creditcards.create({
-                    data: {
-                        card_type: card.card_type,
-                        card_number: card.card_number,
-                        expire_month: card.expire_month,
-                        expire_year: card.expire_year,
-                        cvv: card.cvv,
-                        formatted_info: card.formatted_info
+function isDuplicateError(error) {
+    return error?.code === DUPLICATE_ERROR_CODE;
+}
+
+function isNotFoundError(error) {
+    return error?.code === NOT_FOUND_ERROR_CODE;
+}
+
+function sendError(reply, status, message) {
+    return reply.status(status).send({
+        success: false,
+        error: message
+    });
+}
+
+function logServerError(request, reply, message, error) {
+    request.log.error(message, error);
+    return sendError(reply, STATUS_SERVER_ERROR, error.message);
+}
+
+export function buildCardController({ prisma }) {
+    return {
+        saveCards: buildSaveCards(prisma),
+        addCard: buildAddCard(prisma),
+        deleteCard: buildDeleteCard(prisma),
+        getRandomCard: buildGetRandomCard(prisma),
+        updateCard: buildUpdateCard(prisma),
+        getCardStats: buildGetCardStats(prisma)
+    };
+}
+
+function buildSaveCards(prisma) {
+    return async function saveCards(request, reply) {
+        const { cards } = request.body;
+        const results = { saved: [], duplicates: [] };
+
+        try {
+            for (const card of cards) {
+                try {
+                    await prisma.creditcards.create({
+                        data: mapCardData(card)
+                    });
+                    results.saved.push(card.card_number);
+                } catch (error) {
+                    if (isDuplicateError(error)) {
+                        results.duplicates.push(card.card_number);
+                        continue;
                     }
-                });
-                results.saved.push(card.card_number);
-            } catch (error) {
-                if (error.code === 'P2002') {
-                    results.duplicates.push(card.card_number);
-                } else {
-                    request.log.error('Error processing card:', card.card_number, error);
-                    results.duplicates.push(card.card_number);
+                    throw error;
                 }
             }
+        } catch (error) {
+            return logServerError(request, reply, 'Database error:', error);
         }
-
-        return { 
-            success: true,
-            results: results
-        };
-    } catch (error) {
-        request.log.error('Database error:', error);
-        return reply.status(500).send({ 
-            success: false, 
-            error: error.message 
-        });
-    }
-}
-
-// 添加单张信用卡信息
-export async function addCard(request, reply) {
-    const card = request.body;
-    
-    try {
-        const result = await prisma.creditcards.create({
-            data: {
-                card_type: card.card_type,
-                card_number: card.card_number,
-                expire_month: card.expire_month,
-                expire_year: card.expire_year,
-                cvv: card.cvv,
-                formatted_info: card.formatted_info
-            }
-        });
 
         return {
             success: true,
-            card_number: result.card_number
+            results
         };
-    } catch (error) {
-        if (error.code === 'P2002') {
-            return reply.status(409).send({
-                success: false,
-                error: '卡号已存在'
-            });
-        }
-        request.log.error('添加卡片错误:', error);
-        return reply.status(500).send({
-            success: false,
-            error: error.message
-        });
-    }
+    };
 }
 
-// 删除指定卡号的信用卡信息
-export async function deleteCard(request, reply) {
-    const { cardNumber } = request.params;
-    
-    try {
-        const result = await prisma.creditcards.delete({
-            where: {
-                card_number: cardNumber
+function buildAddCard(prisma) {
+    return async function addCard(request, reply) {
+        const card = request.body;
+
+        try {
+            const result = await prisma.creditcards.create({
+                data: mapCardData(card)
+            });
+
+            return {
+                success: true,
+                card_number: result.card_number
+            };
+        } catch (error) {
+            if (isDuplicateError(error)) {
+                return sendError(reply, STATUS_CONFLICT, '卡号已存在');
             }
-        });
-
-        return {
-            success: true,
-            deleted_card: cardNumber
-        };
-    } catch (error) {
-        if (error.code === 'P2025') {
-            return reply.status(404).send({
-                success: false,
-                error: '卡号不存在'
-            });
+            return logServerError(request, reply, '添加卡片错误:', error);
         }
-        request.log.error('删除卡片错误:', error);
-        return reply.status(500).send({
-            success: false,
-            error: error.message
-        });
-    }
+    };
 }
 
-// 随机获取一条信用卡信息
-export async function getRandomCard(request, reply) {
-    const { type } = request.query;
-    
-    try {
+function buildDeleteCard(prisma) {
+    return async function deleteCard(request, reply) {
+        const { cardNumber } = request.params;
+
+        try {
+            await prisma.creditcards.delete({
+                where: {
+                    card_number: cardNumber
+                }
+            });
+
+            return {
+                success: true,
+                deleted_card: cardNumber
+            };
+        } catch (error) {
+            if (isNotFoundError(error)) {
+                return sendError(reply, STATUS_NOT_FOUND, '卡号不存在');
+            }
+            return logServerError(request, reply, '删除卡片错误:', error);
+        }
+    };
+}
+
+function buildGetRandomCard(prisma) {
+    return async function getRandomCard(request, reply) {
+        const { type } = request.query;
         const where = type ? { card_type: type.toUpperCase() } : {};
-        const [result] = await prisma.$transaction([
-            prisma.creditcards.findMany({
+
+        try {
+            const total = await prisma.creditcards.count({ where });
+            if (total === 0) {
+                return sendError(
+                    reply,
+                    STATUS_NOT_FOUND,
+                    type ? `没有找到${type}类型的卡片` : '数据库中没有卡片记录'
+                );
+            }
+
+            const skip = Math.floor(Math.random() * total);
+            const cards = await prisma.creditcards.findMany({
                 where,
                 take: 1,
+                skip,
                 orderBy: {
                     id: 'asc'
-                },
-                skip: Math.floor(Math.random() * await prisma.creditcards.count({ where }))
-            })
-        ]);
-
-        if (result.length === 0) {
-            return reply.status(404).send({
-                success: false,
-                error: type ? `没有找到${type}类型的卡片` : '数据库中没有卡片记录'
+                }
             });
-        }
 
-        return {
-            success: true,
-            card: result[0]
-        };
-    } catch (error) {
-        request.log.error('随机查询卡片错误:', error);
-        return reply.status(500).send({
-            success: false,
-            error: error.message
-        });
-    }
+            return {
+                success: true,
+                card: cards[0]
+            };
+        } catch (error) {
+            return logServerError(request, reply, '随机查询卡片错误:', error);
+        }
+    };
 }
 
-// 更新一条信用卡信息
-export async function updateCard(request, reply) {
-    const { cardNumber } = request.params;
-    const updates = request.body;
-    
-    try {
+function buildUpdateCard(prisma) {
+    return async function updateCard(request, reply) {
+        const { cardNumber } = request.params;
+        const updates = request.body;
+
         if (Object.keys(updates).length === 0) {
-            return reply.status(400).send({
-                success: false,
-                error: '没有提供要更新的字段'
-            });
+            return sendError(reply, STATUS_BAD_REQUEST, '没有提供要更新的字段');
         }
 
-        const result = await prisma.creditcards.update({
-            where: {
-                card_number: cardNumber
-            },
-            data: updates
-        });
-
-        return {
-            success: true,
-            updated_card: result
-        };
-    } catch (error) {
-        if (error.code === 'P2025') {
-            return reply.status(404).send({
-                success: false,
-                error: '卡号不存在'
+        try {
+            const result = await prisma.creditcards.update({
+                where: {
+                    card_number: cardNumber
+                },
+                data: updates
             });
+
+            return {
+                success: true,
+                updated_card: result
+            };
+        } catch (error) {
+            if (isNotFoundError(error)) {
+                return sendError(reply, STATUS_NOT_FOUND, '卡号不存在');
+            }
+            return logServerError(request, reply, '更新卡片错误:', error);
         }
-        request.log.error('更新卡片错误:', error);
-        return reply.status(500).send({
-            success: false,
-            error: error.message
-        });
-    }
+    };
 }
 
+function buildGetCardStats(prisma) {
+    return async function getCardStats(request, reply) {
+        try {
+            const totalCount = await prisma.creditcards.count();
+            const typeStats = await prisma.$queryRaw`
+                SELECT card_type, COUNT(*) as count
+                FROM creditcards
+                GROUP BY card_type
+            `;
 
-// 卡片库存统计
-export async function getCardStats(request, reply) {
-    try {
-        const totalCount = await prisma.creditcards.count();
-        const typeStats = await prisma.$queryRaw`
-            SELECT card_type, COUNT(*) as count 
-            FROM creditcards 
-            GROUP BY card_type
-        `;
-        
-        return {
-            success: true,
-            stats: {
-                total: totalCount,
-                by_type: typeStats
-            }
-        };
-    } catch (error) {
-        request.log.error('统计卡片错误:', error);
-        return reply.status(500).send({
-            success: false,
-            error: error.message
-        });
-    }
-} 
+            return {
+                success: true,
+                stats: {
+                    total: totalCount,
+                    by_type: typeStats
+                }
+            };
+        } catch (error) {
+            return logServerError(request, reply, '统计卡片错误:', error);
+        }
+    };
+}

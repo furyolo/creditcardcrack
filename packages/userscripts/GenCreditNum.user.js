@@ -7,11 +7,41 @@
 // @match        https://uncoder.eu.org/cc-checker/*
 // @grant        GM_xmlhttpRequest
 // @grant        GM_setClipboard
+// @grant        GM_getValue
+// @grant        GM_setValue
 // @connect      localhost
 // ==/UserScript==
 
 (function() {
     'use strict';
+
+    const API_KEY_STORAGE = 'cc_api_key';
+    const API_KEY_HEADER = 'x-api-key';
+
+    function getApiKey() {
+        const stored = GM_getValue(API_KEY_STORAGE, '');
+        if (stored) {
+            return stored;
+        }
+        const input = window.prompt('请输入 API Key（用于本地测试接口）');
+        if (!input) {
+            return '';
+        }
+        const trimmed = input.trim();
+        if (!trimmed) {
+            return '';
+        }
+        GM_setValue(API_KEY_STORAGE, trimmed);
+        return trimmed;
+    }
+
+    function buildAuthHeaders() {
+        const apiKey = getApiKey();
+        if (!apiKey) {
+            return null;
+        }
+        return { [API_KEY_HEADER]: apiKey };
+    }
 
     // Luhn算法验证
     function luhnCheck(num) {
@@ -459,19 +489,23 @@
 
             try {
                 return new Promise((resolve, reject) => {
+                    const authHeaders = buildAuthHeaders();
+                    if (!authHeaders) {
+                        showMessage('需要 API Key 才能保存到服务器', 'error');
+                        reject(new Error('缺少 API Key'));
+                        return;
+                    }
+
+                    const headers = Object.assign({
+                        'Content-Type': 'application/json'
+                    }, authHeaders);
+
                     GM_xmlhttpRequest({
                         method: 'POST',
-                        url: 'http://localhost:3000/save-cards',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
+                        url: 'http://localhost:3227/save-cards',
+                        headers,
                         data: JSON.stringify({
-                            cards: cards,
-                            dbConfig: {
-                                database: 'postgres',
-                                user: 'postgres',
-                                password: '123456'
-                            }
+                            cards: cards
                         }),
                         onload: function(response) {
                             try {

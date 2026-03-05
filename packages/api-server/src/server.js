@@ -1,13 +1,26 @@
 'use strict';
 
+import 'dotenv/config';
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import swagger from '@fastify/swagger';
 import swaggerUI from '@fastify/swagger-ui';
+import { createPrismaClient } from './db/prismaClient.js';
+import { buildCardController } from './controllers/cardController.js';
+import { buildApiKeyAuthHook, resolveApiKeyConfig } from './hooks/apiKeyAuth.js';
 import cardRoutes from './routes/cardRoutes.js';
 
 const fastify = Fastify({
     logger: true
+});
+
+const prisma = createPrismaClient();
+const cardController = buildCardController({ prisma });
+const apiKeyConfig = resolveApiKeyConfig();
+const apiKeyAuthHook = buildApiKeyAuthHook(apiKeyConfig);
+
+fastify.addHook('onClose', async () => {
+    await prisma.$disconnect();
 });
 
 /**
@@ -62,7 +75,7 @@ async function setupMiddleware() {
  */
 async function setupRoutes() {
     // 注册卡片相关路由
-    fastify.register(cardRoutes);
+    fastify.register(cardRoutes, { cardController, apiKeyAuthHook });
 }
 
 /**
