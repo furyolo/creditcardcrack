@@ -6,6 +6,7 @@
 // @author       Andy
 // @match        https://checkout.stripe.com/c/pay*
 // @match        https://billing.stripe.com/p*
+// @match        https://pay.openai.com/c/pay*
 // @grant        GM_xmlhttpRequest
 // @grant        GM_setClipboard
 // @grant        GM_getValue
