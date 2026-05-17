@@ -454,31 +454,28 @@
 
         // 修改保存到数据库的函数中的提示部分
         async function saveToDatabase() {
-            const successPanel = document.querySelector('.panel-body.success');
-            if (!successPanel) {
+            // 适配新页面结构: .result-item 带 data-card-data 属性
+            const resultItems = document.querySelectorAll('#success-panel .result-item[data-card-data]');
+            if (resultItems.length === 0) {
                 showMessage('没有找到有效的卡号信息！', 'error');
                 return;
             }
 
-            // 获取所有div元素
-            const cardDivs = successPanel.getElementsByTagName('div');
-            const cards = Array.from(cardDivs).map(div => {
-                const cardInfoMatch = div.textContent.match(/(\d+\|\d{2}\|\d{4}\|\d{3})/);
-                if (!cardInfoMatch) {
-                    return null;
-                }
-                
-                const [number, month, year, cvv] = cardInfoMatch[1].split('|');
+            const cards = Array.from(resultItems).map(item => {
+                const cardData = item.getAttribute('data-card-data');
+                if (!cardData) return null;
+
+                const [number, month, year, cvv] = cardData.split('|');
                 return {
-                    card_type: number.startsWith('4') ? 'VISA' : 
-                              number.startsWith('5') ? 'MASTERCARD' : 
+                    card_type: number.startsWith('4') ? 'VISA' :
+                              number.startsWith('5') ? 'MASTERCARD' :
                               number.startsWith('6') ? 'DISCOVER' :
                               number.startsWith('35') ? 'JCB' : 'UNKNOWN',
                     card_number: number,
                     expire_month: month,
                     expire_year: year,
                     cvv: cvv,
-                    formatted_info: cardInfoMatch[1]
+                    formatted_info: cardData
                 };
             }).filter(card => card !== null);
 
